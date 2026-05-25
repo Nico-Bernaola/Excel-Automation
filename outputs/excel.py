@@ -65,6 +65,13 @@ def _build_txt(state: dict) -> str:
             lines.append(f"⚠ {a['message']}")
         lines.append("")
 
+    warnings = state.get("warnings", [])
+    if warnings:
+        lines += ["=" * 60, f"COLUMN WARNINGS ({len(warnings)})", "=" * 60]
+        for w in warnings:
+            lines.append(f"! {w['message']}")
+        lines.append("")
+
     lines += ["=" * 60, "CLEANING REPORT", "=" * 60]
     for _, msg, detail in state["log"]:
         lines.append(f"✓ {msg}")

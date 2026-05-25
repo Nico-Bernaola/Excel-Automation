@@ -10,8 +10,9 @@ from modules.loader import load
 from modules.cleaner import clean
 from modules.analyzer import analyze
 from modules.anomaly_detector import detect
+from modules.validator import validate
 from modules.insights import insights
-from modules.formatter import format_and_save
+from outputs.excel import format_and_save # type: ignore
 from modules.notifier import notify, notify_batch
 
 OUTPUT_DIR = Path(__file__).parent / "output"
@@ -46,6 +47,13 @@ def run(path: str, recipient: str):
             print(f"      · {a['message']}")
     else:
         print(f"      ✓ No anomalies found")
+
+    state = validate(state)
+    n = len(state["warnings"])
+    if n:
+        print(f"      ⚠ {n} column warning(s)")
+        for w in state["warnings"]:
+            print(f"      · {w['message']}")
 
     print(f"\n[5/5] Generating AI insights...")
     try:

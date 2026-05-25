@@ -14,8 +14,9 @@ from modules.loader import load
 from modules.cleaner import clean
 from modules.analyzer import analyze
 from modules.anomaly_detector import detect
+from modules.validator import validate
 from modules.insights import insights
-from modules.formatter import format_and_save
+from outputs.excel import format_and_save
 from modules.notifier import notify
 
 EXTENSIONS = {".csv", ".xlsx", ".xls"}
@@ -52,19 +53,22 @@ class ExcelHandler(FileSystemEventHandler):
 
 def _process(path: Path, recipient: str):
     try:
-        logging.info(f"[1/5] Loading {path.name}...")
+        logging.info(f"[1/6] Loading {path.name}...")
         state = load(str(path))
 
-        logging.info(f"[2/5] Cleaning...")
+        logging.info(f"[2/6] Cleaning...")
         state = clean(state)
 
-        logging.info(f"[3/5] Analyzing...")
+        logging.info(f"[3/6] Analyzing...")
         state = analyze(state)
 
-        logging.info(f"[4/5] Detecting anomalies...")
+        logging.info(f"[4/6] Detecting anomalies...")
         state = detect(state)
 
-        logging.info(f"[5/5] Generating AI insights...")
+        logging.info(f"[5/6] Validating...")
+        state = validate(state)
+
+        logging.info(f"[6/6] Generating AI insights...")
         try:
             state = insights(state)
         except Exception as e:
