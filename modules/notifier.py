@@ -7,55 +7,57 @@ from email import encoders
 from pathlib import Path
 
 
-def notify(state: dict, xlsx_path: Path, txt_path: Path | None, destinatario: str):
+def notify(state: dict, xlsx_path: Path, txt_path: Path | None, recipient: str):
     user     = os.getenv("GMAIL_USER")
     password = os.getenv("GMAIL_APP_PASSWORD")
 
     if not user or not password:
-        raise EnvironmentError("GMAIL_USER o GMAIL_APP_PASSWORD no encontrados en .env")
+        raise EnvironmentError("GMAIL_USER or GMAIL_APP_PASSWORD not found in .env")
 
     msg = MIMEMultipart()
     msg["From"]    = user
-    msg["To"]      = destinatario
-    msg["Subject"] = f"Reporte listo: {state['nombre_archivo']}"
+    msg["To"]      = recipient
+    n_anomalies = len(state.get("anomalies", []))
+    subject = f"Report ready: {state['file_name']}" if not n_anomalies else f"26a0 Report ready: {state['file_name']} ({n_anomalies} anomalies detected)"
+    msg["Subject"] = subject
 
-    cuerpo = _construir_cuerpo(state)
-    msg.attach(MIMEText(cuerpo, "plain", "utf-8"))
+    body = _build_body(state)
+    msg.attach(MIMEText(body, "plain", "utf-8"))
 
     for path in [xlsx_path, txt_path]:
         if path and Path(path).exists():
-            _adjuntar(msg, Path(path))
+            _attach(msg, Path(path))
 
-    with smtplib.SMTP_SSL("smtp.gmail.com", 465) as servidor:
-        servidor.login(user, password)
-        servidor.sendmail(user, destinatario, msg.as_string())
+    with smtplib.SMTP_SSL("smtp.gmail.com", 465) as server:
+        server.login(user, password)
+        server.sendmail(user, recipient, msg.as_string())
 
 
-def _construir_cuerpo(state: dict) -> str:
+def _build_body(state: dict) -> str:
     df = state["df_clean"]
-    lineas = [
-        f"Hola,",
+    lines = [
+        f"Hi,",
         f"",
-        f"La pipeline procesó el archivo '{state['nombre_archivo']}' correctamente.",
+        f"The pipeline processed the file '{state['file_name']}' successfully.",
         f"",
-        f"── Resumen ──────────────────────────",
-        f"  Filas originales : {state['filas_originales']}",
-        f"  Filas limpias    : {len(df)}",
-        f"  Columnas         : {len(df.columns)}",
+        f"── Summary ──────────────────────────",
+        f"  Original rows : {state['original_rows']}",
+        f"  Clean rows       : {len(df)}",
+        f"  Columns          : {len(df.columns)}",
         f"",
-        f"── Limpieza ─────────────────────────",
+        f"── Cleaning ─────────────────────────",
     ]
     for _, msg, _ in state["log"]:
-        lineas.append(f"  ✓ {msg}")
+        lines.append(f"  ✓ {msg}")
 
-    lineas += ["", "Se adjuntan el Excel limpio y el análisis de IA.", "", "— Excel Cleaner v0.1.0"]
-    return "\n".join(lineas)
+    lines += ["", "Clean Excel and AI analysis are attached.", "", "— Excel Cleaner v0.1.0"]
+    return "\n".join(lines)
 
 
-def _adjuntar(msg: MIMEMultipart, path: Path):
+def _attach(msg: MIMEMultipart, path: Path):
     with open(path, "rb") as f:
-        parte = MIMEBase("application", "octet-stream")
-        parte.set_payload(f.read())
-    encoders.encode_base64(parte)
-    parte.add_header("Content-Disposition", f"attachment; filename={path.name}")
-    msg.attach(parte)
+        part = MIMEBase("application", "octet-stream")
+        part.set_payload(f.read())
+    encoders.encode_base64(part)
+    part.add_header("Content-Disposition", f"attachment; filename={path.name}")
+    msg.attach(part)

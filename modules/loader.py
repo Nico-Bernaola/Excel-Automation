@@ -3,12 +3,12 @@ import pandas as pd
 from pathlib import Path
 
 
-EXTENSIONES_VALIDAS = {".csv", ".xlsx", ".xls"}
+VALID_EXTENSIONS = {".csv", ".xlsx", ".xls"}
 
 
-def load(ruta: str) -> dict:
-    path = _resolver_ruta(ruta)
-    _validar(path)
+def load(file_path: str) -> dict:
+    path = _resolve_path(file_path)
+    _validate(path)
 
     extension = path.suffix.lower()
     if extension == ".csv":
@@ -17,25 +17,25 @@ def load(ruta: str) -> dict:
         df = pd.read_excel(path, dtype=str, keep_default_na=False)
 
     return {
-        "ruta_original": str(path),
-        "nombre_archivo": path.stem,
+        "original_path": str(path),
+        "file_name": path.stem,
         "df_raw": df,
-        "filas_originales": len(df),
-        "columnas_originales": list(df.columns),
+        "original_rows": len(df),
+        "original_columns": list(df.columns),
         "log": [],
     }
 
 
-def _resolver_ruta(ruta: str) -> Path:
-    ruta = ruta.strip().strip("'\"")
-    match = re.match(r"^/([a-zA-Z])(/.+)$", ruta)
+def _resolve_path(file_path: str) -> Path:
+    file_path = file_path.strip().strip("'\"")
+    match = re.match(r"^/([a-zA-Z])(/.+)$", file_path)
     if match:
-        ruta = f"{match.group(1).upper()}:{match.group(2)}"
-    return Path(ruta)
+        file_path = f"{match.group(1).upper()}:{match.group(2)}"
+    return Path(file_path)
 
 
-def _validar(path: Path):
+def _validate(path: Path):
     if not path.exists():
-        raise FileNotFoundError(f"No se encontró el archivo: {path}")
-    if path.suffix.lower() not in EXTENSIONES_VALIDAS:
-        raise ValueError(f"Formato no soportado: '{path.suffix}'. Usá .csv, .xlsx o .xls")
+        raise FileNotFoundError(f"File not found: {path}")
+    if path.suffix.lower() not in VALID_EXTENSIONS:
+        raise ValueError(f"Format not supported: '{path.suffix}'. Use .csv, .xlsx, or .xls")

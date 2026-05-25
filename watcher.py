@@ -13,11 +13,12 @@ from watchdog.events import FileSystemEventHandler
 from modules.loader import load
 from modules.cleaner import clean
 from modules.analyzer import analyze
+from modules.anomaly_detector import detect
 from modules.insights import insights
 from modules.formatter import format_and_save
 from modules.notifier import notify
 
-EXTENSIONES = {".csv", ".xlsx", ".xls"}
+EXTENSIONS = {".csv", ".xlsx", ".xls"}
 OUTPUT_DIR = Path(__file__).parent / "output"
 INBOX_DIR = Path(__file__).parent / "inbox"
 
@@ -29,56 +30,59 @@ logging.basicConfig(
 
 
 class ExcelHandler(FileSystemEventHandler):
-    def __init__(self, destinatario: str):
-        self.destinatario = destinatario
-        self.procesando = set()
+    def __init__(self, recipient: str):
+        self.recipient = recipient
+        self.processing = set()
 
     def on_created(self, event):
         if event.is_directory:
             return
-        path = Path(event.src_path)
-        if path.suffix.lower() not in EXTENSIONES:
+        path = Path(str(event.src_path))
+        if path.suffix.lower() not in EXTENSIONS:
             return
-        if path in self.procesando:
+        if path in self.processing:
             return
 
-        self.procesando.add(path)
-        logging.info(f"Archivo detectado: {path.name}")
+        self.processing.add(path)
+        logging.info(f"File detected: {path.name}")
         time.sleep(1)  # espera a que el archivo termine de copiarse
-        _procesar(path, self.destinatario)
-        self.procesando.discard(path)
+        _process(path, self.recipient)
+        self.processing.discard(path)
 
 
-def _procesar(path: Path, destinatario: str):
+def _process(path: Path, recipient: str):
     try:
-        logging.info(f"[1/4] Cargando {path.name}...")
+        logging.info(f"[1/5] Loading {path.name}...")
         state = load(str(path))
 
-        logging.info(f"[2/4] Limpiando...")
+        logging.info(f"[2/5] Cleaning...")
         state = clean(state)
 
-        logging.info(f"[3/4] Analizando...")
+        logging.info(f"[3/5] Analyzing...")
         state = analyze(state)
 
-        logging.info(f"[4/4] Generando insights...")
+        logging.info(f"[4/5] Detecting anomalies...")
+        state = detect(state)
+
+        logging.info(f"[5/5] Generating AI insights...")
         try:
             state = insights(state)
         except Exception as e:
             state["insights"] = ""
-            logging.warning(f"Gemini no disponible: {e}")
+            logging.warning(f"Gemini not available: {e}")
 
         xlsx_path, txt_path = format_and_save(state, OUTPUT_DIR)
-        logging.info(f"✓ Excel guardado: {xlsx_path.name}")
+        logging.info(f"✓ Excel saved: {xlsx_path.name}")
 
-        logging.info(f"Enviando mail a {destinatario}...")
-        notify(state, xlsx_path, txt_path, destinatario)
-        logging.info(f"✓ Mail enviado a {destinatario}")
+        logging.info(f"Sending email to {recipient}...")
+        notify(state, xlsx_path, txt_path, recipient)
+        logging.info(f"✓ Email sent to {recipient}")
 
     except Exception as e:
-        logging.error(f"✗ Error procesando {path.name}: {e}")
+        logging.error(f"✗ Error processing {path.name}: {e}")
 
 
-def run(destinatario: str):
+def run(recipient: str):
     INBOX_DIR.mkdir(exist_ok=True)
     OUTPUT_DIR.mkdir(exist_ok=True)
 
@@ -86,13 +90,13 @@ def run(destinatario: str):
     print("║     Excel Cleaner  v0.1.0    ║")
     print("║        File Watcher          ║")
     print("╚══════════════════════════════╝\n")
-    print(f"  Escuchando : {INBOX_DIR}")
+    print(f"  Listening : {INBOX_DIR}")
     print(f"  Output     : {OUTPUT_DIR}")
-    print(f"  Reporte a  : {destinatario}")
-    print(f"\n  Depositá un .xlsx o .csv en la carpeta inbox/")
-    print(f"  Ctrl+C para detener\n")
+    print(f"  Report to  : {recipient}")
+    print(f"\n  Drop a .xlsx or .csv file in the inbox folder/")
+    print(f"  Press Ctrl+C to stop\n")
 
-    handler = ExcelHandler(destinatario)
+    handler = ExcelHandler(recipient)
     observer = Observer()
     observer.schedule(handler, str(INBOX_DIR), recursive=False)
     observer.start()
@@ -102,17 +106,17 @@ def run(destinatario: str):
             time.sleep(1)
     except KeyboardInterrupt:
         observer.stop()
-        print("\n  Watcher detenido.\n")
+        print("\n  Watcher stopped.\n")
 
     observer.join()
 
 
 if __name__ == "__main__":
     if len(sys.argv) > 1:
-        destinatario = sys.argv[1]
+        recipient = sys.argv[1]
     else:
-        destinatario = input("Mail del destinatario (Enter para usarte a vos mismo): ").strip()
-        if not destinatario:
+        recipient = input("Recipient of the report (Enter to use your own email): ").strip()
+        if not recipient:
             import os
-            destinatario = os.getenv("GMAIL_USER", "")
-    run(destinatario)
+            recipient = os.getenv("GMAIL_USER", "")
+    run(recipient)
