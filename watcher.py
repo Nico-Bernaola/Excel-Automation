@@ -1,3 +1,4 @@
+import os
 import sys
 import time
 import logging
@@ -17,6 +18,7 @@ from modules.anomaly_detector import detect
 from modules.validator import validate
 from modules.insights import insights
 from outputs.excel import format_and_save
+from outputs.sql import save_to_db
 from modules.notifier import notify
 
 EXTENSIONS = {".csv", ".xlsx", ".xls"}
@@ -77,6 +79,10 @@ def _process(path: Path, recipient: str):
 
         xlsx_path, txt_path = format_and_save(state, OUTPUT_DIR)
         logging.info(f"✓ Excel saved: {xlsx_path.name}")
+
+        if os.getenv("DATABASE_URL"):
+            state = save_to_db(state)
+            logging.info(f"✓ DB → {state['db']['rows_inserted']} rows inserted into '{state['db']['table']}'")
 
         logging.info(f"Sending email to {recipient}...")
         notify(state, xlsx_path, txt_path, recipient)
