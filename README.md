@@ -17,6 +17,7 @@ Drop any `.xlsx` or `.csv` file into the pipeline and get back:
 - An **anomaly report** flagging suspicious values, empty critical fields and similar names
 - A **column-level validation report** catching structural data issues
 - An **AI-generated executive summary** via Gemini 2.5 Flash
+- Data **inserted into PostgreSQL** automatically
 - An **automated email** with all outputs attached
 
 ---
@@ -38,6 +39,7 @@ Drop any `.xlsx` or `.csv` file into the pipeline and get back:
 | Script | Responsibility |
 |---|---|
 | `outputs/excel.py` | Writes formatted `.xlsx` + insights `.txt` |
+| `outputs/sql.py` | Inserts clean data into PostgreSQL |
 
 ### Orchestrators
 
@@ -57,6 +59,8 @@ Drop any `.xlsx` or `.csv` file into the pipeline and get back:
 - Dates in multiple formats (`15/03/2024`, `2024-03-16`, `17-03-2024`) → normalized to `YYYY-MM-DD`
 - Numbers with `$`, thousand separators, decimal commas, attached text (`"2 u"`, `"N/A"`) → converted or marked as NaN
 - Inconsistent text casing (`ACME CORP`, `acme corp`) → normalized to Title Case
+
+---
 
 ## What gets detected
 
@@ -81,9 +85,9 @@ Drop any `.xlsx` or `.csv` file into the pipeline and get back:
 
 ```
 output/
-└── ventas_marzo/
-    ├── ventas_marzo_clean_20260525_1430.xlsx
-    └── ventas_marzo_clean_20260525_1430_insights.txt
+└── sales_january/
+    ├── sales_january_clean_20260526_1703.xlsx
+    └── sales_january_clean_20260526_1703_insights.txt
 ```
 
 ---
@@ -92,7 +96,7 @@ output/
 
 ```
 Excel Automation/
-├── pipeline.py          ← manual orchestrator
+├── pipeline.py          ← manual orchestrator (single file + batch mode)
 ├── watcher.py           ← automatic orchestrator
 ├── modules/
 │   ├── loader.py
@@ -103,7 +107,8 @@ Excel Automation/
 │   ├── insights.py
 │   └── notifier.py
 ├── outputs/
-│   └── excel.py
+│   ├── excel.py         ← formatted .xlsx + insights .txt
+│   └── sql.py           ← PostgreSQL insert
 ├── inbox/               ← drop files here (watcher mode)
 ├── output/              ← processed reports land here
 ├── .env
@@ -116,6 +121,8 @@ Excel Automation/
 
 - **[pandas](https://pandas.pydata.org/)** — data processing and transformation
 - **[openpyxl](https://openpyxl.readthedocs.io/)** — Excel file generation with formatting
+- **[sqlalchemy](https://www.sqlalchemy.org/)** — database abstraction layer
+- **[psycopg2](https://www.psycopg2.org/)** — PostgreSQL driver
 - **[watchdog](https://python-watchdog.readthedocs.io/)** — file system watcher
 - **[Gemini 2.5 Flash](https://ai.google.dev/)** — AI insights (free tier)
 - **[python-dotenv](https://github.com/theskumar/python-dotenv)** — environment variable management
@@ -126,6 +133,7 @@ Excel Automation/
 ## Requirements
 
 - Python 3.10+
+- PostgreSQL (optional — skipped if `DATABASE_URL` not set)
 
 ```bash
 pip install -r requirements.txt
@@ -143,10 +151,12 @@ pip install -r requirements.txt
 GEMINI_API_KEY=your_key_here
 GMAIL_USER=your@gmail.com
 GMAIL_APP_PASSWORD=xxxx xxxx xxxx xxxx
+DATABASE_URL=postgresql://user:password@localhost:5432/excel_cleaner
 ```
 
-Get a free Gemini API key at [aistudio.google.com](https://aistudio.google.com).
-For Gmail, generate an App Password at [myaccount.google.com/apppasswords](https://myaccount.google.com/apppasswords).
+Get a free Gemini API key at [aistudio.google.com](https://aistudio.google.com).  
+For Gmail, generate an App Password at [myaccount.google.com/apppasswords](https://myaccount.google.com/apppasswords).  
+`DATABASE_URL` is optional — the pipeline runs without it.
 
 ---
 
@@ -171,10 +181,11 @@ python watcher.py recipient@email.com
 
 ## Roadmap
 
-- `outputs/sql.py` — insert clean data directly into a database
-- Historical comparison — track changes between monthly files
+- `modules/history.py` — compare current file against previous imports in DB
 - Charts sheet — native Excel charts generated automatically
+- Smart deduplication — merge near-duplicate rows with AI
 - Airflow / Prefect integration — production-grade scheduling
+- Power BI — connect directly to `output/` folder
 
 ---
 
