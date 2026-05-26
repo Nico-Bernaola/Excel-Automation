@@ -1,0 +1,11 @@
+date,customer,product,quantity,unit_price,total,salesperson,status
+2024-01-03,Acme Corp,Laptop,2,1200,2400,Luis,paid
+2024-01-05,Beta SA,Monitor,1,300,300,Ana,paid
+2024-01-07,Acme Corp,Keyboard,5,85,425,Carlos,pending
+2024-01-08,Gamma Ltd,Laptop,1,1200,1200,Luis,paid
+2024-01-10,Beta SA,Mouse,3,45,135,Ana,paid
+2024-01-12,Delta Inc,Monitor,2,300,600,Carlos,pending
+2024-01-15,Acme Corp,Mouse,4,45,180,Luis,paid
+2024-01-17,Gamma Ltd,Keyboard,2,85,170,Ana,paid
+2024-01-20,Delta Inc,Laptop,1,1200,1200,Carlos,paid
+2024-01-22,Beta SA,Monitor,3,300,900,Ana,pending
