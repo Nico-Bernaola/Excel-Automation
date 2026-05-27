@@ -4,14 +4,15 @@ from datetime import datetime
 
 def validate(state: dict) -> dict:
     df = state["df_clean"]
+    column_roles = state.get("column_roles", {})
     warnings = []
 
     warnings += _high_null_ratio(df)
     warnings += _single_value_columns(df)
     warnings += _columns_summing_to_zero(df)
     warnings += _percentage_out_of_range(df)
-    warnings += _future_dates(df)
-    warnings += _ancient_dates(df)
+    warnings += _future_dates(df, column_roles)
+    warnings += _ancient_dates(df, column_roles)
 
     state["warnings"] = warnings
     return state
@@ -71,10 +72,10 @@ def _percentage_out_of_range(df: pd.DataFrame) -> list:
     return results
 
 
-def _future_dates(df: pd.DataFrame) -> list:
+def _future_dates(df: pd.DataFrame, column_roles: dict | None = None) -> list:
     results = []
     today = pd.Timestamp(datetime.today().date())
-    date_cols = [c for c in df.columns if "date" in c.lower()]
+    date_cols = _date_columns(df, column_roles or {})
     for col in date_cols:
         parsed = pd.to_datetime(df[col], errors="coerce")
         future = parsed[parsed > today].dropna()
@@ -87,10 +88,10 @@ def _future_dates(df: pd.DataFrame) -> list:
     return results
 
 
-def _ancient_dates(df: pd.DataFrame) -> list:
+def _ancient_dates(df: pd.DataFrame, column_roles: dict | None = None) -> list:
     results = []
     cutoff = pd.Timestamp("2000-01-01")
-    date_cols = [c for c in df.columns if "date" in c.lower()]
+    date_cols = _date_columns(df, column_roles or {})
     for col in date_cols:
         parsed = pd.to_datetime(df[col], errors="coerce")
         ancient = parsed[parsed < cutoff].dropna()
@@ -101,3 +102,9 @@ def _ancient_dates(df: pd.DataFrame) -> list:
                 "message": f"'{col}': {len(ancient)} date(s) before year 2000 — possible formatting error",
             })
     return results
+
+
+def _date_columns(df: pd.DataFrame, column_roles: dict) -> list[str]:
+    if column_roles.get("date") in df.columns:
+        return [column_roles["date"]]
+    return [c for c in df.columns if "date" in c.lower()]

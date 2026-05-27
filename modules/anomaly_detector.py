@@ -1,53 +1,59 @@
 import pandas as pd
 
 
-UMBRAL_OUTLIER = 3.0  # desvíos estándar para considerar outlier
+OUTLIER_STD_THRESHOLD = 3.0
+NON_NEGATIVE_ROLES = ["quantity", "unit_price", "total"]
+SIMILAR_NAME_ROLES = ["customer", "salesperson"]
 
 
 def detect(state: dict) -> dict:
     df = state["df_clean"]
+    column_roles = state.get("column_roles", {})
+    config = state.get("workflow_config", {})
     anomalies = []
 
     anomalies += _outliers(df)
-    anomalies += _negatives(df)
-    anomalies += _inconsistent_totals(df)
-    anomalies += _incomplete_rows(df)
+    anomalies += _negatives(df, column_roles)
+    anomalies += _inconsistent_totals(df, column_roles)
+    anomalies += _incomplete_rows(df, column_roles, config)
     anomalies += _suspicious_unique_values(df)
-    anomalies += _similar_names(df)
+    anomalies += _similar_names(df, column_roles)
 
     state["anomalies"] = anomalies
     return state
 
 
-# ── Detectores ────────────────────────────────────────────────────────────────
-
 def _outliers(df: pd.DataFrame) -> list:
     results = []
     for col in df.select_dtypes(include="number").columns:
-        serie = df[col].dropna()
-        if len(serie) < 4:
+        series = df[col].dropna()
+        if len(series) < 4:
             continue
-        media = serie.mean()
-        std = serie.std()
+        mean = series.mean()
+        std = series.std()
         if std == 0:
             continue
-        for idx, val in serie.items():
-            z = abs((val - media) / std)
-            if z > UMBRAL_OUTLIER:
+        for idx, val in series.items():
+            z_score = abs((val - mean) / std)
+            if z_score > OUTLIER_STD_THRESHOLD:
                 results.append({
                     "type": "outlier",
                     "row": idx,
                     "column": col,
                     "value": val,
-                    "message": f"'{col}' row {idx}: {val:.2f} is {z:.1f}x the standard deviation (mean: {media:.2f})",
+                    "message": f"'{col}' row {idx}: {val:.2f} is {z_score:.1f}x the standard deviation (mean: {mean:.2f})",
                 })
     return results
 
 
-def _negatives(df: pd.DataFrame) -> list:
+def _negatives(df: pd.DataFrame, column_roles: dict) -> list:
     results = []
-    non_negative_cols = [c for c in df.select_dtypes(include="number").columns
-                         if any(k in c for k in ["quantity", "price", "total", "amount", "subtotal"])]
+    role_columns = {column_roles.get(role) for role in NON_NEGATIVE_ROLES}
+    non_negative_cols = [
+        col for col in df.select_dtypes(include="number").columns
+        if col in role_columns or any(key in col.lower() for key in ["quantity", "price", "total", "amount", "subtotal"])
+    ]
+
     for col in non_negative_cols:
         mask = df[col] < 0
         for idx in df[mask].index:
@@ -61,13 +67,13 @@ def _negatives(df: pd.DataFrame) -> list:
     return results
 
 
-def _inconsistent_totals(df: pd.DataFrame) -> list:
+def _inconsistent_totals(df: pd.DataFrame, column_roles: dict) -> list:
     results = []
     cols = df.columns.tolist()
 
-    col_total = next((c for c in cols if "total" in c.lower()), None)
-    col_price = next((c for c in cols if "price" in c.lower()), None)
-    col_quantity = next((c for c in cols if "quantity" in c.lower() or "qty" in c.lower()), None)
+    col_total = column_roles.get("total") or _find_column(cols, ["total"])
+    col_price = column_roles.get("unit_price") or _find_column(cols, ["price"])
+    col_quantity = column_roles.get("quantity") or _find_column(cols, ["quantity", "qty"])
 
     if not (col_total and col_price and col_quantity):
         return []
@@ -84,17 +90,17 @@ def _inconsistent_totals(df: pd.DataFrame) -> list:
                     "row": idx,
                     "column": col_total,
                     "value": real,
-                    "message": f"'{col_total}' row {idx}: total {real:.2f} does not match {col_price}×{col_quantity} = {expected:.2f}",
+                    "message": f"'{col_total}' row {idx}: total {real:.2f} does not match {col_price} x {col_quantity} = {expected:.2f}",
                 })
         except Exception:
             continue
     return results
 
 
-def _incomplete_rows(df: pd.DataFrame) -> list:
+def _incomplete_rows(df: pd.DataFrame, column_roles: dict, config: dict) -> list:
     results = []
-    critical_cols = [c for c in df.columns
-                     if any(k in c.lower() for k in ["customer", "date", "total", "amount", "import", "price"])]
+    critical_cols = _critical_columns(df, column_roles, config)
+
     for col in critical_cols:
         mask = df[col].isna() | df[col].astype(str).str.strip().eq("")
         for idx in df[mask].index:
@@ -110,70 +116,95 @@ def _incomplete_rows(df: pd.DataFrame) -> list:
 
 def _suspicious_unique_values(df: pd.DataFrame) -> list:
     results = []
-    cols_text = df.select_dtypes(include="object").columns
-    for col in cols_text:
-        if any(k in col.lower() for k in ["date", "description", "notes"]):
+    for col in df.select_dtypes(include="object").columns:
+        if any(key in col.lower() for key in ["date", "description", "notes"]):
             continue
         counts = df[col].dropna().value_counts()
         if len(counts) < 3:
             continue
-        for val, n in counts.items():
-            if n == 1 and str(val).strip():
+        for val, count in counts.items():
+            if count == 1 and str(val).strip():
+                row_idx = df[df[col] == val].index[0]
                 results.append({
                     "type": "suspicious_unique_value",
-                    "row": df[df[col] == val].index[0],
+                    "row": row_idx,
                     "column": col,
                     "value": val,
-                    "message": f"'{col}' row {df[df[col] == val].index[0]}: '{val}' appears only once — possible typo",
+                    "message": f"'{col}' row {row_idx}: '{val}' appears only once - possible typo",
                 })
     return results
 
 
-def _similar_names(df: pd.DataFrame) -> list:
+def _similar_names(df: pd.DataFrame, column_roles: dict) -> list:
     results = []
-    cols_text = [c for c in df.select_dtypes(include="object").columns
-                  if any(k in c.lower() for k in ["customer", "vendor", "supplier", "name", "company"])]
-    for col in cols_text:
+    role_columns = {column_roles.get(role) for role in SIMILAR_NAME_ROLES}
+    text_cols = [
+        col for col in df.select_dtypes(include="object").columns
+        if col in role_columns or any(key in col.lower() for key in ["customer", "vendor", "supplier", "name", "company"])
+    ]
+
+    for col in text_cols:
         values = df[col].dropna().unique().tolist()
         seen = set()
-        for i, a in enumerate(values):
-            for b in values[i+1:]:
-                par = tuple(sorted([a, b]))
-                if par in seen:
+        for i, left in enumerate(values):
+            for right in values[i + 1:]:
+                pair = tuple(sorted([left, right]))
+                if pair in seen:
                     continue
-                if _similarity(a, b) > 0.8:
-                    seen.add(par)
+                if _similarity(left, right) > 0.8:
+                    seen.add(pair)
                     results.append({
                         "type": "similar_name",
                         "row": None,
                         "column": col,
-                        "value": f"{a} / {b}",
-                        "message": f"'{col}': '{a}' and '{b}' are very similar — aren't they the same?",
+                        "value": f"{left} / {right}",
+                        "message": f"'{col}': '{left}' and '{right}' are very similar - check if they are the same entity",
                     })
     return results
 
 
-def _similarity(a: str, b: str) -> float:
-    a, b = a.lower().strip(), b.lower().strip()
-    if a == b:
+def _critical_columns(df: pd.DataFrame, column_roles: dict, config: dict) -> list[str]:
+    configured_roles = config.get("validation", {}).get("critical_roles", [])
+    if isinstance(configured_roles, list) and configured_roles:
+        return [
+            column_roles[role]
+            for role in configured_roles
+            if role in column_roles and column_roles[role] in df.columns
+        ]
+
+    return [
+        col for col in df.columns
+        if any(key in col.lower() for key in ["customer", "date", "total", "amount", "import", "price"])
+    ]
+
+
+def _find_column(columns: list[str], keys: list[str]) -> str | None:
+    return next((col for col in columns if any(key in col.lower() for key in keys)), None)
+
+
+def _similarity(left: str, right: str) -> float:
+    left = left.lower().strip()
+    right = right.lower().strip()
+    if left == right:
         return 1.0
-    longer = max(len(a), len(b))
+    longer = max(len(left), len(right))
     if longer == 0:
         return 1.0
-    distance = _levenshtein(a, b)
+    distance = _levenshtein(left, right)
     return 1 - distance / longer
 
 
-def _levenshtein(a: str, b: str) -> int:
-    if len(a) < len(b):
-        a, b = b, a
-    previous_row = list(range(len(b) + 1))
-    for i, ca in enumerate(a):
+def _levenshtein(left: str, right: str) -> int:
+    if len(left) < len(right):
+        left, right = right, left
+
+    previous_row = list(range(len(right) + 1))
+    for i, left_char in enumerate(left):
         current_row = [i + 1]
-        for j, cb in enumerate(b):
-            inserts = previous_row[j + 1] + 1
+        for j, right_char in enumerate(right):
+            insertions = previous_row[j + 1] + 1
             deletions = current_row[j] + 1
-            substitutions = previous_row[j] + (ca != cb)
-            current_row.append(min(inserts, deletions, substitutions))
+            substitutions = previous_row[j] + (left_char != right_char)
+            current_row.append(min(insertions, deletions, substitutions))
         previous_row = current_row
     return previous_row[-1]

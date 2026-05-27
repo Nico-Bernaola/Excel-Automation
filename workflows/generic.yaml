@@ -1,0 +1,77 @@
+name: generic
+
+columns:
+  roles:
+    customer:
+      aliases:
+        - customer
+        - client
+        - account
+        - company
+        - customer_name
+        - client_name
+    date:
+      aliases:
+        - date
+        - order_date
+        - invoice_date
+        - sale_date
+        - transaction_date
+    product:
+      aliases:
+        - product
+        - item
+        - sku
+        - product_name
+        - item_name
+    quantity:
+      aliases:
+        - quantity
+        - qty
+        - units
+        - units_sold
+    unit_price:
+      aliases:
+        - unit_price
+        - price
+        - rate
+    total:
+      aliases:
+        - total
+        - amount
+        - revenue
+        - net_amount
+        - invoice_total
+        - grand_total
+    salesperson:
+      aliases:
+        - salesperson
+        - seller
+        - sales_rep
+        - rep
+    status:
+      aliases:
+        - status
+        - state
+        - stage
+
+analysis:
+  group_by:
+    - customer
+    - product
+    - salesperson
+    - status
+
+validation:
+  critical_roles:
+    - date
+    - total
+
+outputs:
+  excel: true
+  sql: false
+  email: false
+
+history:
+  enabled: false
+  compare_with: none
