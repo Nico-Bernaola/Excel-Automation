@@ -7,3 +7,19 @@ venv/
 ENV/
 env.bak/
 venv.bak/
+
+# Byte-compiled / optimized / DLL files
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Distribution / packaging
+dist/
+build/
+*.egg-info/
+.eggs/
+
+# IDE and Editor files
+.vscode/
+.idea/
+.DS_Store
