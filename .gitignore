@@ -9,7 +9,6 @@ env.bak/
 venv.bak/
 
 # Byte-compiled / optimized / DLL files
-__pycache__/
 *.py[cod]
 *$py.class
 
@@ -23,3 +22,12 @@ build/
 .vscode/
 .idea/
 .DS_Store
+
+# Miscellaneous
+output/
+*.xlsx
+*.csv
+*.egg-info/
+uv.lock
+__pycache__/
+.venv/
