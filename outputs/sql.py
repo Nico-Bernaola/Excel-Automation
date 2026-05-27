@@ -3,6 +3,8 @@ import pandas as pd
 from datetime import datetime
 from sqlalchemy import create_engine, text
 
+from modules.history import infer_table_name, normalize_table_name
+
 
 def save_to_db(state: dict, table_name: str | None = None) -> dict:
     db_url = os.getenv("DATABASE_URL")
@@ -13,7 +15,7 @@ def save_to_db(state: dict, table_name: str | None = None) -> dict:
     df["source_file"]  = state["file_name"]
     df["imported_at"]  = datetime.now()
 
-    table = table_name or _infer_table_name(state["file_name"])
+    table = normalize_table_name(table_name or _infer_table_name(state["file_name"]))
 
     engine = create_engine(db_url)
     with engine.begin() as conn:
@@ -29,7 +31,4 @@ def save_to_db(state: dict, table_name: str | None = None) -> dict:
 
 
 def _infer_table_name(file_name: str) -> str:
-    # ventas_marzo_2024 → ventas
-    # sales_q1          → sales
-    parts = file_name.lower().split("_")
-    return parts[0] if parts else "imports"
+    return infer_table_name(file_name)

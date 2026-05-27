@@ -5,3 +5,4 @@ python-dotenv
 watchdog
 SQLAlchemy
 psycopg2-binary
+questionary
