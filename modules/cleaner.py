@@ -64,7 +64,9 @@ def _remove_duplicates(df: pd.DataFrame, log: list) -> tuple:
 def _clean_dates(df: pd.DataFrame, log: list) -> tuple:
     for col in df.columns:
         if "date" in col:
-            converted = pd.to_datetime(df[col], dayfirst=True, errors="coerce")
+            converted = pd.to_datetime(df[col], errors="coerce")
+            if converted.isna().sum() > converted.notna().sum():
+                converted = pd.to_datetime(df[col], dayfirst=True, errors="coerce")
             n_ok = converted.notna().sum()
             n_fail = df[col].str.strip().ne("").sum() - n_ok
             df[col] = converted.dt.strftime("%Y-%m-%d").fillna("")

@@ -13,8 +13,8 @@ from modules.anomaly_detector import detect
 from modules.validator import validate
 from modules.insights import insights
 from outputs.excel import format_and_save # type: ignore
-from outputs.sql import save_to_db
 from modules.notifier import notify, notify_batch
+from modules.history import prompt_comparison, compare
 
 OUTPUT_DIR = Path(__file__).parent / "output"
 VALID_EXTENSIONS = {".csv", ".xlsx", ".xls"}
@@ -64,13 +64,12 @@ def run(path: str, recipient: str):
         state["insights"] = ""
         print(f"      ⚠ Gemini not available: {e}")
 
-    output_path = OUTPUT_DIR / state["file_name"]
-    xlsx_path, txt_path = format_and_save(state, output_path
-                                          )
     if os.getenv("DATABASE_URL"):
-        state = save_to_db(state)
-        print(f"✓ DB → {state['db']['rows_inserted']} rows inserted into '{state['db']['table']}'")
+        state = prompt_comparison(state)
+        state = compare(state)
 
+    output_path = OUTPUT_DIR / state["file_name"]
+    xlsx_path, txt_path = format_and_save(state, output_path)
     print(f"\n✓ Excel    → {xlsx_path}")
     if txt_path:
         print(f"✓ Insights → {txt_path}")
