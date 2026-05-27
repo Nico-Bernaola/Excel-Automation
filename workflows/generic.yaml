@@ -5,55 +5,99 @@ columns:
     customer:
       aliases:
         - customer
-        - client
-        - account
-        - company
         - customer_name
+        - customer_id
+        - client
         - client_name
+        - client_id
+        - account
+        - account_name
+        - company
+        - company_name
+        - organization
+        - buyer
+        - contact
     date:
       aliases:
         - date
-        - order_date
         - invoice_date
+        - order_date
         - sale_date
         - transaction_date
+        - purchase_date
+        - created_at
+        - paid_at
+        - closed_at
+        - booking_date
+        - event_date
     product:
       aliases:
         - product
-        - item
-        - sku
         - product_name
+        - product_id
+        - item
         - item_name
+        - sku
+        - description
+        - service
+        - service_name
+        - offering
     quantity:
       aliases:
         - quantity
         - qty
         - units
         - units_sold
+        - count
+        - volume
+        - amount_units
     unit_price:
       aliases:
         - unit_price
+        - unit_price_($)
         - price
+        - price_per_unit
         - rate
+        - unit_cost
+        - cost
+        - list_price
+        - selling_price
     total:
       aliases:
         - total
-        - amount
-        - revenue
+        - total_amount
+        - net_revenue
+        - gross_revenue
         - net_amount
+        - gross_amount
+        - revenue
+        - amount
         - invoice_total
+        - invoice_amount
+        - order_total
+        - sales_amount
         - grand_total
+        - subtotal
+        - line_total
     salesperson:
       aliases:
         - salesperson
-        - seller
         - sales_rep
+        - sales_rep_name
+        - seller
         - rep
+        - agent
+        - account_manager
+        - owner
+        - assigned_to
     status:
       aliases:
         - status
         - state
         - stage
+        - payment_status
+        - order_status
+        - invoice_status
 
 analysis:
   group_by:
