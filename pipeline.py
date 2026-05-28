@@ -35,7 +35,7 @@ def run(path: str, recipient: str) -> None:
     print("\nExcel Cleaner v0.1.0\n")
 
     print(f"[1/6] Processing {Path(path).name}...")
-    state = build_state(path, enable_history_prompt=True)
+    state = build_state(path, history_mode="manual")
     print(f"      {state['original_rows']} rows, {len(state['original_columns'])} columns")
 
     print("\n[2/6] Cleaning...")
@@ -132,7 +132,7 @@ def run_batch(folder: str, recipient: str) -> None:
 def _process_file(path: Path) -> dict:
     """Process a single file. Never raises; returns errors in the result dict."""
     try:
-        result = process_file(path, OUTPUT_DIR)
+        result = process_file(path, OUTPUT_DIR, history_mode="none")
         state = result["state"]
         return {
             "ok": True,

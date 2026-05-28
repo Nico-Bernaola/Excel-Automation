@@ -52,7 +52,7 @@ class ExcelHandler(FileSystemEventHandler):
 def _process(path: Path, recipient: str) -> None:
     try:
         logging.info("Processing %s...", path.name)
-        result = process_file(path, OUTPUT_DIR, write_db=bool(os.getenv("DATABASE_URL")))
+        result = process_file(path, OUTPUT_DIR, write_db=bool(os.getenv("DATABASE_URL")), history_mode="latest")
         state = result["state"]
         xlsx_path = result["xlsx_path"]
         txt_path = result["txt_path"]
