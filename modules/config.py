@@ -27,3 +27,10 @@ def load_workflow_config(path: str | Path | None = None) -> dict[str, Any]:
     config.setdefault("history", {})
 
     return config
+
+def load_workflow_for_domain(domain: str) -> dict[str, Any]:
+    """Load the workflow config for a detected domain, falling back to generic."""
+    workflow_path = DEFAULT_WORKFLOW.parent / f"{domain}.yaml"
+    if domain != "generic" and workflow_path.exists():
+        return load_workflow_config(workflow_path)
+    return load_workflow_config()

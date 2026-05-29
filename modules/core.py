@@ -4,7 +4,8 @@ from modules.analyzer import analyze
 from modules.anomaly_detector import detect
 from modules.cleaner import clean
 from modules.column_mapper import map_column_roles
-from modules.config import load_workflow_config
+from modules.config import load_workflow_for_domain
+from modules.domain_detector import detect_domain
 from modules.history import resolve_comparison
 from modules.insights import insights
 from modules.loader import load
@@ -23,8 +24,12 @@ def build_state(
     """Run the shared pipeline stages and return the populated state."""
     state = load(str(path))
     state = clean(state)
-    state["workflow_config"] = load_workflow_config()
+
+    domain                   = detect_domain(list(state["df_clean"].columns))
+    state["domain"]          = domain
+    state["workflow_config"] = load_workflow_for_domain(domain)
     state["column_roles"]    = map_column_roles(state["df_clean"], state["workflow_config"])
+
     state = analyze(state)
     state = detect(state)
     state = validate(state)
