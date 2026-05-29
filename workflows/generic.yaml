@@ -110,6 +110,7 @@ validation:
   critical_roles:
     - date
     - total
+  outlier_std_threshold: 3
 
 outputs:
   excel: true

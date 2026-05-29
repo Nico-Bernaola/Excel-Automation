@@ -1,0 +1,90 @@
+name: marketing
+
+columns:
+  roles:
+    date:
+      aliases:
+        - date
+        - week
+        - period
+        - report_date
+        - event_date
+    campaign:
+      aliases:
+        - campaign
+        - campaign_name
+        - campaign_number
+        - campaign_id
+        - ad_campaign
+        - utm_campaign
+    impressions:
+      aliases:
+        - impressions
+        - displays
+        - impr
+        - imp
+        - views
+        - reach
+        - ad_impressions
+    clicks:
+      aliases:
+        - clicks
+        - click
+        - total_clicks
+        - ad_clicks
+        - link_clicks
+    cost:
+      aliases:
+        - cost
+        - spend
+        - amount_spent
+        - ad_spend
+        - budget_used
+        - investment
+    revenue:
+      aliases:
+        - revenue
+        - post_click_sales_amount
+        - sales_amount
+        - total_revenue
+        - attributed_revenue
+        - conversion_value
+    conversions:
+      aliases:
+        - conversions
+        - post_click_conversions
+        - total_conversions
+        - conv
+        - goals
+        - leads
+    placement:
+      aliases:
+        - placement
+        - ad_placement
+        - position
+        - slot
+        - banner
+        - creative
+        - format
+        - user_engagement
+        - audience_segment
+
+analysis:
+  group_by:
+    - campaign
+    - placement
+
+validation:
+  critical_roles:
+    - date
+    - cost
+  outlier_std_threshold: 5
+
+outputs:
+  excel: true
+  sql: false
+  email: false
+
+history:
+  enabled: false
+  compare_with: none

@@ -12,7 +12,7 @@ def detect(state: dict) -> dict:
     config = state.get("workflow_config", {})
     anomalies = []
 
-    anomalies += _outliers(df)
+    anomalies += _outliers(df, config)
     anomalies += _negatives(df, column_roles)
     anomalies += _inconsistent_totals(df, column_roles)
     anomalies += _incomplete_rows(df, column_roles, config)
@@ -23,8 +23,9 @@ def detect(state: dict) -> dict:
     return state
 
 
-def _outliers(df: pd.DataFrame) -> list:
+def _outliers(df: pd.DataFrame, config: dict) -> list:
     results = []
+    threshold = config.get("validation", {}).get("outlier_std_threshold", OUTLIER_STD_THRESHOLD)
     for col in df.select_dtypes(include="number").columns:
         series = df[col].dropna()
         if len(series) < 4:
@@ -35,7 +36,7 @@ def _outliers(df: pd.DataFrame) -> list:
             continue
         for idx, val in series.items():
             z_score = abs((val - mean) / std)
-            if z_score > OUTLIER_STD_THRESHOLD:
+            if z_score > threshold:
                 results.append({
                     "type": "outlier",
                     "row": idx,
