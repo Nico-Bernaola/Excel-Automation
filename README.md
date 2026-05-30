@@ -13,7 +13,7 @@ python pipeline.py
 Drop any `.xlsx` or `.csv` file into the pipeline and get back:
 
 - A **clean Excel file** with normalized data, consistent formatting and professional styling
-- **Summaries** grouped by client, seller, product and status
+- **Summaries** grouped by domain-specific roles (customer, product, campaign, etc.)
 - An **anomaly report** flagging suspicious values, empty critical fields and similar names
 - A **column-level validation report** catching structural data issues
 - An **AI-generated executive summary** via Gemini 2.5 Flash
@@ -27,12 +27,18 @@ Drop any `.xlsx` or `.csv` file into the pipeline and get back:
 | Script | Responsibility | Input → Output |
 |---|---|---|
 | `loader.py` | Reads the source file | path → state with df_raw |
-| `cleaner.py` | Normalizes and cleans data | df_raw → df_clean |
-| `analyzer.py` | Generates grouped summaries | df_clean → analysis |
+| `cleaner.py` | Normalizes and cleans data, detects real header row | df_raw → df_clean |
+| `domain_detector.py` | Detects business domain via Gemini or keywords | columns → domain string |
+| `config.py` | Loads workflow YAML for detected domain | domain → workflow config |
+| `column_mapper.py` | Maps canonical roles to actual DataFrame columns | df + config → column_roles |
+| `analyzer.py` | Generates grouped summaries using column roles | df_clean → analysis |
 | `anomaly_detector.py` | Flags row-level anomalies | df_clean → anomalies |
 | `validator.py` | Applies column-level business rules | df_clean → warnings |
-| `insights.py` | Calls Gemini API | state → AI text |
+| `insights.py` | Calls Gemini API for executive summary | state → AI text |
+| `history.py` | Compares current file against previous DB imports | state → comparison |
+| `reporting.py` | Formats comparison deltas as text | comparison → formatted string |
 | `notifier.py` | Sends email with attachments | state + paths → email |
+| `core.py` | Shared processing pipeline for all orchestrators | path → populated state |
 
 ### Outputs
 
@@ -45,14 +51,24 @@ Drop any `.xlsx` or `.csv` file into the pipeline and get back:
 
 | Script | Mode |
 |---|---|
-| `pipeline.py` | Manual — single file or batch folder |
+| `pipeline.py` | Manual — single file or `--batch` folder |
 | `watcher.py` | Automatic — detects new files in `inbox/` |
+
+### Workflows
+
+| File | Domain |
+|---|---|
+| `workflows/generic.yaml` | Fallback for any unrecognized dataset |
+| `workflows/sales.yaml` | Sales, invoicing, orders |
+| `workflows/marketing.yaml` | Advertising, campaigns, digital marketing |
 
 ---
 
 ## What gets cleaned
 
+- Junk rows above real headers (company titles, empty rows) → detected and removed automatically
 - Headers with inconsistent casing, spaces or special characters → normalized to snake_case
+- Empty unnamed columns → removed
 - Fully empty rows → removed
 - Hardcoded total rows mixed with data → detected and removed
 - Duplicate rows → removed
@@ -65,10 +81,10 @@ Drop any `.xlsx` or `.csv` file into the pipeline and get back:
 ## What gets detected
 
 **Row-level anomalies**
-- Statistical outliers (values beyond 3 standard deviations)
+- Statistical outliers (threshold configurable per workflow)
 - Negative values in columns that shouldn't have them
 - Totals that don't match price × quantity
-- Empty values in critical columns (client, date, total)
+- Empty values in critical columns (defined per workflow)
 - Values appearing only once — possible typos
 - Similar names that may refer to the same entity
 
@@ -81,13 +97,27 @@ Drop any `.xlsx` or `.csv` file into the pipeline and get back:
 
 ---
 
+## Domain detection
+
+The pipeline automatically detects the business domain of each file:
+
+1. **Gemini API** — sends column names to Gemini, gets back a domain label
+2. **Keyword matching** — falls back to a keyword map if Gemini is unavailable
+3. **generic.yaml** — final fallback if no domain is recognized
+
+Detected domains: `sales`, `marketing`, `finance`, `hr`, `generic`
+
+Each domain loads its own workflow YAML which defines column role aliases, analysis groupings, critical columns and outlier thresholds.
+
+---
+
 ## Pipeline output
 
 ```
 output/
-└── sales_january/
-    ├── sales_january_clean_20260526_1703.xlsx
-    └── sales_january_clean_20260526_1703_insights.txt
+└── q1_sales_raw/
+    ├── q1_sales_raw_clean_20260530_1325.xlsx
+    └── q1_sales_raw_clean_20260530_1325_insights.txt
 ```
 
 ---
@@ -96,21 +126,31 @@ output/
 
 ```
 Excel Automation/
-├── pipeline.py          ← manual orchestrator (single file + batch mode)
-├── watcher.py           ← automatic orchestrator
+├── pipeline.py              ← manual orchestrator (single file + batch mode)
+├── watcher.py               ← automatic orchestrator
 ├── modules/
+│   ├── core.py              ← shared processing pipeline
 │   ├── loader.py
 │   ├── cleaner.py
+│   ├── domain_detector.py   ← auto-detects business domain
+│   ├── config.py            ← loads workflow YAML
+│   ├── column_mapper.py     ← maps roles to real columns
 │   ├── analyzer.py
 │   ├── anomaly_detector.py
 │   ├── validator.py
 │   ├── insights.py
+│   ├── history.py
+│   ├── reporting.py
 │   └── notifier.py
 ├── outputs/
-│   ├── excel.py         ← formatted .xlsx + insights .txt
-│   └── sql.py           ← PostgreSQL insert
-├── inbox/               ← drop files here (watcher mode)
-├── output/              ← processed reports land here
+│   ├── excel.py             ← formatted .xlsx + insights .txt
+│   └── sql.py               ← PostgreSQL insert
+├── workflows/
+│   ├── generic.yaml
+│   ├── sales.yaml
+│   └── marketing.yaml
+├── inbox/                   ← drop files here (watcher mode)
+├── output/                  ← processed reports land here
 ├── .env
 └── requirements.txt
 ```
@@ -124,7 +164,8 @@ Excel Automation/
 - **[sqlalchemy](https://www.sqlalchemy.org/)** — database abstraction layer
 - **[psycopg2](https://www.psycopg2.org/)** — PostgreSQL driver
 - **[watchdog](https://python-watchdog.readthedocs.io/)** — file system watcher
-- **[Gemini 2.5 Flash](https://ai.google.dev/)** — AI insights (free tier)
+- **[questionary](https://github.com/tmbo/questionary)** — interactive CLI prompts
+- **[Gemini 2.5 Flash](https://ai.google.dev/)** — domain detection + AI insights (free tier)
 - **[python-dotenv](https://github.com/theskumar/python-dotenv)** — environment variable management
 - **smtplib** — Gmail SMTP email delivery
 
@@ -174,15 +215,15 @@ python pipeline.py --batch inbox/
 
 **Automatic watcher — processes any file dropped in `inbox/`:**
 ```bash
-python watcher.py recipient@email.com
+python watcher.py
 ```
 
 ---
 
 ## Roadmap
 
-- `modules/history.py` — compare current file against previous imports in DB
-- Charts sheet — native Excel charts generated automatically
+- `pipeline_runs` table in PostgreSQL — metadata per run for Power BI dashboards
+- `workflows/finance.yaml` and `workflows/hr.yaml`
 - Smart deduplication — merge near-duplicate rows with AI
 - Airflow / Prefect integration — production-grade scheduling
 - Power BI — connect directly to `output/` folder
