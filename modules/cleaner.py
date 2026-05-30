@@ -7,10 +7,10 @@ def clean(state: dict) -> dict:
     log = []
 
     df, log = _detect_header_row(df, log)
+    df, log = _remove_empty_columns(df, log)
     df, log = _clean_headers(df, log)
     df, log = _remove_empty_rows(df, log)
     df, log = _remove_total_rows(df, log)
-    df, log = _remove_empty_columns(df, log)
     df, log = _remove_duplicates(df, log)
     df, log = _clean_dates(df, log)
     df, log = _clean_numbers(df, log)
@@ -98,7 +98,8 @@ def _remove_empty_rows(df: pd.DataFrame, log: list) -> tuple:
 def _remove_empty_columns(df: pd.DataFrame, log: list) -> tuple:
     empty_cols = [
         col for col in df.columns
-        if col.startswith("unnamed") and df[col].astype(str).str.strip().eq("").all()
+        if str(col).strip().lower().startswith("unnamed")
+        and df[col].astype(str).str.strip().eq("").all()
     ]
     if empty_cols:
         df = df.drop(columns=empty_cols)
