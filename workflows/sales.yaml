@@ -1,0 +1,122 @@
+name: sales
+
+columns:
+  roles:
+    customer:
+      aliases:
+        - customer
+        - customer_name
+        - customer_id
+        - client
+        - client_name
+        - client_id
+        - account
+        - account_name
+        - company
+        - company_name
+        - organization
+        - buyer
+        - bill_to
+        - sold_to
+    date:
+      aliases:
+        - date
+        - invoice_date
+        - order_date
+        - sale_date
+        - transaction_date
+        - purchase_date
+        - created_at
+        - paid_at
+        - closed_at
+        - booking_date
+    product:
+      aliases:
+        - product
+        - product_name
+        - product_id
+        - item
+        - item_name
+        - sku
+        - description
+        - service
+        - service_name
+        - offering
+    quantity:
+      aliases:
+        - quantity
+        - qty
+        - units
+        - units_sold
+        - count
+        - volume
+        - amount_units
+    unit_price:
+      aliases:
+        - unit_price
+        - unit_price_($)
+        - price
+        - price_per_unit
+        - rate
+        - unit_cost
+        - list_price
+        - selling_price
+    total:
+      aliases:
+        - total
+        - total_amount
+        - net_revenue
+        - gross_revenue
+        - net_amount
+        - gross_amount
+        - revenue
+        - amount
+        - invoice_total
+        - invoice_amount
+        - order_total
+        - sales_amount
+        - grand_total
+        - subtotal
+        - line_total
+    salesperson:
+      aliases:
+        - salesperson
+        - sales_rep
+        - sales_rep_name
+        - seller
+        - rep
+        - agent
+        - account_manager
+        - owner
+        - assigned_to
+    status:
+      aliases:
+        - status
+        - state
+        - stage
+        - payment_status
+        - order_status
+        - invoice_status
+
+analysis:
+  group_by:
+    - customer
+    - product
+    - salesperson
+    - status
+
+validation:
+  critical_roles:
+    - date
+    - customer
+    - total
+  outlier_std_threshold: 3
+
+outputs:
+  excel: true
+  sql: false
+  email: false
+
+history:
+  enabled: false
+  compare_with: none
