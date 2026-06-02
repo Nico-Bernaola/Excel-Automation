@@ -9,7 +9,8 @@ sys.path.insert(0, str(Path(__file__).parent))
 
 import questionary
 
-from modules.core import build_state, process_file
+from modules.core import build_state, process_file, process_file_all_sheets
+from modules.loader import detect_sheets
 from modules.notifier import notify, notify_batch
 from outputs.excel import format_and_save
 
@@ -31,11 +32,34 @@ def ask_recipient() -> str:
     return recipient.strip() if recipient else ""
 
 
+def ask_sheet(path: str) -> str | None:
+    """Returns None = first sheet only, 'all' = all sheets, or a sheet name."""
+    sheets = detect_sheets(path)
+    if not sheets or len(sheets) == 1:
+        return None
+
+    choices = [sheets[0], "All sheets"] + [s for s in sheets[1:]]
+    answer = questionary.select(
+        f"{len(sheets)} sheets detected — which one to process?",
+        choices=choices,
+    ).ask()
+
+    if answer == "All sheets":
+        return "all"
+    return answer
+
+
 def run(path: str, recipient: str) -> None:
     print("\nExcel Cleaner v0.1.0\n")
 
+    sheet_choice = ask_sheet(path)
+
+    if sheet_choice == "all":
+        _run_all_sheets(path, recipient)
+        return
+
     print(f"[1/6] Processing {Path(path).name}...")
-    state = build_state(path, history_mode="manual")
+    state = build_state(path, sheet=sheet_choice, history_mode="manual")
     print(f"      {state['original_rows']} rows, {len(state['original_columns'])} columns")
 
     print("\n[2/6] Cleaning...")
@@ -80,6 +104,34 @@ def run(path: str, recipient: str) -> None:
         print(f"\nSending email to {recipient}...")
         try:
             notify(state, xlsx_path, txt_path, recipient)
+            print("Email sent")
+        except Exception as exc:
+            print(f"Failed to send email: {exc}")
+    print()
+
+
+def _run_all_sheets(path: str, recipient: str) -> None:
+    print(f"[1/6] Processing all sheets in {Path(path).name}...")
+    result = process_file_all_sheets(path, OUTPUT_DIR / Path(path).stem)
+    states = result["states"]
+    xlsx_path = result["xlsx_path"]
+    txt_path  = result["txt_path"]
+
+    print(f"      {len(states)} sheet(s) processed")
+    for state in states:
+        sheet = state.get("sheet_name", state["file_name"])
+        n_anomalies = len(state.get("anomalies", []))
+        print(f"      - {sheet}: {len(state['df_clean'])} clean rows, {n_anomalies} anomalies")
+
+    print(f"\nExcel    -> {xlsx_path}")
+    if txt_path:
+        print(f"Insights -> {txt_path}")
+
+    if recipient:
+        print(f"\nSending email to {recipient}...")
+        try:
+            # Use first state for notify metadata
+            notify(states[0], xlsx_path, txt_path, recipient)
             print("Email sent")
         except Exception as exc:
             print(f"Failed to send email: {exc}")

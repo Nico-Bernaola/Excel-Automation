@@ -171,3 +171,98 @@ def _autofit(ws, df: pd.DataFrame):
 def _border():
     side = Side(style="thin", color="CCCCCC")
     return Border(left=side, right=side, top=side, bottom=side)
+
+def format_and_save_multi(states: list[dict], output_dir: Path) -> tuple:
+    """Process multiple sheet states into a single Excel file with one tab per sheet."""
+    output_dir.mkdir(parents=True, exist_ok=True)
+    timestamp = datetime.now().strftime("%Y%m%d_%H%M")
+    file_name = states[0]["file_name"] if states else "output"
+    base_name = f"{file_name}_clean_{timestamp}"
+
+    wb = Workbook()
+    wb.remove(wb.active)  # type: ignore
+
+    all_anomalies = []
+    all_warnings  = []
+
+    for state in states:
+        sheet_name    = state.get("sheet_name") or state["file_name"]
+        anomalies     = state.get("anomalies", [])
+        anomalous_cells = {(a["row"], a["column"]) for a in anomalies if a["row"] is not None}
+
+        # Clean data tab — named after the sheet
+        ws = wb.create_sheet(sheet_name[:31])  # Excel tab name limit is 31 chars
+        cols_num  = set(state["df_clean"].select_dtypes(include="number").columns)
+        cols_list = list(state["df_clean"].columns)
+
+        _title(ws, sheet_name, len(cols_list))
+        _headers(ws, cols_list, row=2)
+
+        for i, row in enumerate(state["df_clean"].itertuples(index=False), start=3):
+            even = i % 2 == 0
+            for j, (col, val) in enumerate(zip(cols_list, row), start=1):
+                cell = ws.cell(row=i, column=j, value=None if pd.isna(val) else val)
+                _data_style(cell, even, col in cols_num, (i - 3, col) in anomalous_cells)
+
+        _autofit(ws, state["df_clean"])
+        ws.freeze_panes = "A3"
+
+        # Summary tabs — prefixed with sheet name to avoid collisions
+        for name, df in state.get("analysis", {}).items():
+            if isinstance(df, pd.DataFrame) and not df.empty:
+                tab_title = f"{sheet_name[:15]} - {name.replace('_', ' ').title()}"
+                _sheet_summary(wb, df, tab_title[:31])
+
+        all_anomalies.extend(anomalies)
+        all_warnings.extend(state.get("warnings", []))
+
+    xlsx_path = output_dir / f"{base_name}.xlsx"
+    wb.save(xlsx_path)
+
+    # Single consolidated txt
+    txt_path = None
+    if any(s.get("insights") or s.get("anomalies") or s.get("comparison") for s in states):
+        txt_path = output_dir / f"{base_name}_insights.txt"
+        txt_path.write_text(_build_txt_multi(states), encoding="utf-8")
+
+    return xlsx_path, txt_path
+
+
+def _build_txt_multi(states: list[dict]) -> str:
+    lines = [
+        f"INSIGHTS — {states[0]['file_name']}",
+        f"Generated: {datetime.now().strftime('%d/%m/%Y %H:%M')}",
+        f"Sheets processed: {len(states)}",
+        "=" * 60,
+        "",
+    ]
+
+    for state in states:
+        sheet_name = state.get("sheet_name") or state["file_name"]
+        lines += [f"── SHEET: {sheet_name} ──────────────────────────────", ""]
+
+        if state.get("insights"):
+            lines += [state["insights"], ""]
+
+        anomalies = state.get("anomalies", [])
+        if anomalies:
+            lines += [f"ANOMALIES DETECTED ({len(anomalies)})", "=" * 40]
+            for a in anomalies:
+                lines.append(f"⚠ {a['message']}")
+            lines.append("")
+
+        warnings = state.get("warnings", [])
+        if warnings:
+            lines += [f"COLUMN WARNINGS ({len(warnings)})", "=" * 40]
+            for w in warnings:
+                lines.append(f"! {w['message']}")
+            lines.append("")
+
+        lines += ["CLEANING REPORT", "=" * 40]
+        for _, msg, detail in state["log"]:
+            lines.append(f"✓ {msg}")
+            for d in detail:
+                lines.append(f"    · {d}")
+        lines += ["", ""]
+
+    return "\n".join(lines)
