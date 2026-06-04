@@ -1,0 +1,53 @@
+name: finance
+
+columns:
+  roles:
+    period:
+      aliases:
+        - period
+        - year
+        - fiscal_year
+        - fy
+        - quarter
+        - date
+        - as_of
+    metric:
+      aliases:
+        - metric
+        - account
+        - line_item
+        - description
+        - category
+        - item
+        - label
+        - unnamed_0
+        - unnamed:_0
+    value:
+      aliases:
+        - value
+        - amount
+        - balance
+        - usd
+        - in_million_usd
+        - in_millions
+        - total
+
+analysis:
+  mode: financial
+  value_role: value
+  label_role: metric
+  period_role: period
+
+validation:
+  critical_roles: []
+  outlier_detection: false
+  typo_check_roles: []
+
+outputs:
+  excel: true
+  sql: false
+  email: false
+
+history:
+  enabled: false
+  compare_with: none

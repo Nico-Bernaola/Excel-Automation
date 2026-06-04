@@ -98,7 +98,7 @@ def _remove_empty_rows(df: pd.DataFrame, log: list) -> tuple:
 def _remove_empty_columns(df: pd.DataFrame, log: list) -> tuple:
     empty_cols = [
         col for col in df.columns
-        if str(col).strip().lower().startswith("unnamed")
+        if re.match(r"^unnamed[\W_]*\d*$", str(col).strip().lower())
         and df[col].astype(str).str.strip().eq("").all()
     ]
     if empty_cols:

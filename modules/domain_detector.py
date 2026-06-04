@@ -28,6 +28,15 @@ _KEYWORD_MAP = {
         "transaction", "amount", "currency", "exchange_rate", "budget",
         "forecast", "actual", "variance", "gl_code",
     },
+    "finance": {
+        "revenue", "net_revenue", "gross_profit", "operating_income", "ebitda",
+        "assets", "liabilities", "equity", "cash", "debt", "goodwill",
+        "depreciation", "amortization", "capex", "free_cash_flow",
+        "earnings", "eps", "balance_sheet", "income_statement", "fiscal",
+        "treasury", "dividends", "interest_expense", "tax_expense",
+        "in_million_usd", "in_millions", "fy", "fy_", "metric", "account",
+        "line_item", "balance", "usd", "amount", "fiscal_year",
+    },
     "hr": {
         "employee", "department", "salary", "hire_date", "termination",
         "headcount", "position", "manager", "performance", "leave",
@@ -81,10 +90,20 @@ def _detect_via_gemini(columns: list[str]) -> str | None:
 
 
 def _detect_via_keywords(columns: list[str]) -> str | None:
-    normalized = {col.strip().lower().replace(" ", "_") for col in columns}
-    scores = {
-        domain: len(normalized & keywords)
-        for domain, keywords in _KEYWORD_MAP.items()
-    }
+    normalized = [col.strip().lower().replace(" ", "_") for col in columns]
+    normalized_set = set(normalized)
+
+    scores: dict[str, int] = {}
+    for domain, keywords in _KEYWORD_MAP.items():
+        # Exact match
+        exact = len(normalized_set & keywords)
+        # Substring match — column name contains a keyword
+        substr = sum(
+            1 for col in normalized
+            for kw in keywords
+            if kw in col and kw not in normalized_set
+        )
+        scores[domain] = exact + substr
+
     best_domain, best_score = max(scores.items(), key=lambda x: x[1])
     return best_domain if best_score >= 2 else None
